@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Network Layer for CAP Backend
+# Metadata #####################################################################
+# Metadata:
+# Parameters ###################################################################
+Parameters:
+  AvailabilityZones:
+    Description: 'List of Availability Zones to use for the subnets in the VPC. Note:
+      The logical order is preserved.'
+    Type: CommaDelimitedList
+  VPCCIDR:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+    Type: String
+# Conditions ###################################################################
+# Conditions:
+# Resources ####################################################################
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      InstanceTenancy: default
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - vpc
+              - !Ref AWS::Region
+              - !Ref AWS::StackName
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !GetAtt VPC.CidrBlock
+      AvailabilityZone: !Select [ 0, !Ref AvailabilityZones ]
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - subnet
+              - !Select [ 0, !Ref AvailabilityZones ]
+              - !Ref AWS::StackName
+              - public
+  PublicSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - rtb
+              - !Ref AWS::StackName
+              - public
+        - Key: Network
+          Value: Public
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicSubnetRouteTable
+# Outputs ######################################################################
+Outputs:
+  VPCID:
+    Value: !Ref VPC
+    Description: VPC ID
+    Export:
+      Name: !Sub '${AWS::StackName}-VPCID'
+  VPCCIDR:
+    Value: !Ref VPCCIDR
+    Description: VPC CIDR
+    Export:
+      Name: !Sub '${AWS::StackName}-VPCCIDR'
+  PublicSubnetRouteTable:
+    Value: !Ref PublicSubnetRouteTable
+    Description: Public Subnet Route Table
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicSubnetRouteTable'
